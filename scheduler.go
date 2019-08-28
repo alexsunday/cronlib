@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"sync/atomic"
 )
 
 // copy robfig/cron's crontab parser to cronlib.cron_parser.go
@@ -241,7 +242,7 @@ func (c *CronSchduler) GetServiceCron(srv string) (*JobModel, error) {
 func NewJobModel(spec string, f func(), options ...JobOption) (*JobModel, error) {
 	var err error
 	job := &JobModel{
-		running:    true,
+		running:    1,
 		async:      false,
 		do:         f,
 		spec:       spec,
@@ -300,7 +301,7 @@ type JobModel struct {
 	notifyChan chan int
 
 	// break for { ... } loop
-	running bool
+	running int32
 
 	// ensure job worker is exited already
 	exited bool
@@ -392,7 +393,7 @@ func (j *JobModel) run(wg *sync.WaitGroup) {
 		j.exited = true
 	}()
 
-	for j.running {
+	for atomic.LoadInt32(&j.running) > 0 {
 		select {
 		case <-timer.C:
 			if time.Now().Before(due) {
@@ -432,7 +433,7 @@ func (j *JobModel) run(wg *sync.WaitGroup) {
 }
 
 func (j *JobModel) kill() {
-	j.running = false
+	atomic.AddInt32(&j.running, 1)
 	close(j.notifyChan)
 }
 
