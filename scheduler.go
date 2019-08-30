@@ -433,7 +433,7 @@ func (j *JobModel) run(wg *sync.WaitGroup) {
 }
 
 func (j *JobModel) kill() {
-	atomic.AddInt32(&j.running, 1)
+	atomic.AddInt32(&j.running, -1)
 	close(j.notifyChan)
 }
 
